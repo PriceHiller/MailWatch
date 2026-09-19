@@ -8,6 +8,7 @@ from imap_tools import MailBox
 
 from mailwatch.config import LoginConfig
 from mailwatch.handler import handle_mailbox
+from mailwatch.handler.handler import format_size_bytes
 from mailwatch.rules import MessageContext, Rule, RuleResult
 
 
@@ -30,9 +31,17 @@ class _FakeIdle:
 
 @final
 class _FakeMessage:
-    def __init__(self, subject: str, uid: str | None) -> None:
+    def __init__(
+        self,
+        subject: str,
+        uid: str | None,
+        to: tuple[str, ...] = ("test@example.com",),
+        size: int = 0,
+    ) -> None:
         self.subject = subject
         self.uid = uid
+        self.to = to
+        self.size = size
         self.date = datetime.datetime(2026, 9, 19, 12, 0)
 
 
@@ -143,12 +152,32 @@ def test_handle_mailbox_logs_rule_failure_and_continues(
 
 
 def test_handle_mailbox_logs_message_context(caplog: pytest.LogCaptureFixture) -> None:
-    mailbox = _FakeMailBox([_FakeMessage("Hello World", "43")])
+    mailbox = _FakeMailBox(
+        [_FakeMessage("Hello World", "43", to=("dest@example.com",), size=2048)]
+    )
 
     with caplog.at_level("INFO"):
         _run(mailbox, [])
 
     record = next(r for r in caplog.records if r.getMessage() == "Received message")
     logged = cast("dict[str, object]", getattr(record, "context", None))
-    assert logged["subject"] == "Hello World"
     assert logged["uid"] == "43"
+    assert logged["to"] == ("dest@example.com",)
+    assert logged["size"] == "2.00 KB"
+
+
+@pytest.mark.parametrize(
+    ("size", "expected"),
+    [
+        pytest.param(0, "0 Bytes", id="zero"),
+        pytest.param(1, "1 Byte", id="one-byte"),
+        pytest.param(512, "512 Bytes", id="bytes"),
+        pytest.param(1024, "1.00 KB", id="kilobyte"),
+        pytest.param(1536, "1.50 KB", id="kilobytes"),
+        pytest.param(1024**2, "1.00 MB", id="megabyte"),
+        pytest.param(1024**3, "1.00 GB", id="gigabyte"),
+        pytest.param(1024**4, "1.00 TB", id="terabyte"),
+    ],
+)
+def test_format_size_bytes(size: int, expected: str) -> None:
+    assert format_size_bytes(size) == expected

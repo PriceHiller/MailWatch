@@ -13,6 +13,28 @@ INBOX_FOLDER = "INBOX"
 IDLE_TIMEOUT_SECONDS = 60
 
 
+# Thanks https://stackoverflow.com/a/31631711
+def format_size_bytes(size_bytes: float) -> str:
+    """Return the given bytes as a human friendly KB, MB, GB, or TB string."""
+    size_bytes = float(size_bytes)
+    KB = float(1024)
+    MB = float(KB**2)  # 1,048,576
+    GB = float(KB**3)  # 1,073,741,824
+    TB = float(KB**4)  # 1,099,511,627,776
+
+    if size_bytes < KB:
+        unit = "Byte" if size_bytes == 1 else "Bytes"
+        return f"{size_bytes:g} {unit}"
+    elif KB <= size_bytes < MB:
+        return f"{size_bytes / KB:.2f} KB"
+    elif MB <= size_bytes < GB:
+        return f"{size_bytes / MB:.2f} MB"
+    elif GB <= size_bytes < TB:
+        return f"{size_bytes / GB:.2f} GB"
+    else:
+        return f"{size_bytes / TB:.2f} TB"
+
+
 def handle_mailbox(
     mailbox: MailBox, login_config: LoginConfig, rules: Sequence[Rule]
 ) -> None:
@@ -29,15 +51,18 @@ def handle_mailbox(
                         "Received message",
                         extra={
                             "context": {
-                                "date": msg.date,
-                                "subject": msg.subject,
                                 "uid": msg.uid,
+                                "to": msg.to,
+                                "date": msg.date,
+                                "size": format_size_bytes(msg.size)
                             }
                         },
                     )
                     _apply_rules(MessageContext(mailbox=logged_in, message=msg), rules)
             else:
-                logger.debug("No updates", extra={"context": {"timeout": IDLE_TIMEOUT_SECONDS}})
+                logger.debug(
+                    "No updates", extra={"context": {"timeout": IDLE_TIMEOUT_SECONDS}}
+                )
 
 
 def _apply_rules(context: MessageContext, rules: Sequence[Rule]) -> None:
