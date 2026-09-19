@@ -1,6 +1,8 @@
 # MailWatch
 
-MailWatch is a small daemon that watches a mailbox on a mail server over IMAP. It idles on the INBOX folder and processes new (unseen) messages — logging each message's recipient, date, and size as structured JSON, and moving messages whose configured `matches` callback returns true (by default the subject is searched for `Testing Mailwatch`) to the Junk folder. It shuts down gracefully on `SIGINT` (Ctrl+C) or `SIGTERM`, closing the IMAP connection before exiting.
+MailWatch is a small daemon that watches a mailbox on a mail server over IMAP and takes actions based upon the messages it receives.
+
+The primary motivation behind this is the shitbag spammers who pull my email from various mailing lists and Git hosting sites where my email address is sitting in the logs.
 
 ## Requirements
 
