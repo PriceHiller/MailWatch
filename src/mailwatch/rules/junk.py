@@ -30,8 +30,8 @@ class JunkRule(Rule):
         message = context.message
         if not message.uid or not self.matches(message):
             return RuleResult.CONTINUE
-        _ = context.mailbox.flag(message.uid, self.spam_flag, True)
-        _ = context.mailbox.move(message.uid, self.junk_folder)
+        _ = context.mailbox.flag(message.uid, self.spam_flag, True)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        _ = context.mailbox.move(message.uid, self.junk_folder)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         logger.info(
             "Moved message to Junk",
             extra={"context": {"uid": message.uid, "folder": self.junk_folder}},
