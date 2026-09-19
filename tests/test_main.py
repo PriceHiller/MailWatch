@@ -1,5 +1,5 @@
 import signal
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from types import FrameType
 from typing import cast
 
@@ -7,6 +7,7 @@ import pytest
 
 from mailwatch.errors import ShutdownRequested
 from mailwatch.main import install_signal_handlers, main
+from mailwatch.rules import DEFAULT_RULES, Rule
 
 
 def test_install_signal_handlers_requests_shutdown() -> None:
@@ -63,3 +64,19 @@ def test_main_shuts_down_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert main(["--host", "h", "--username", "u", "--password", "p"]) == 0
     assert _FakeMailBox.closed
+
+
+def test_main_passes_default_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[Sequence[Rule]] = []
+
+    def spy(mailbox: object, login_config: object, rules: Sequence[Rule]) -> None:
+        _ = mailbox, login_config
+        captured.append(rules)
+
+    monkeypatch.setattr("mailwatch.main.configure_logging", _noop)
+    monkeypatch.setattr("mailwatch.main.install_signal_handlers", _noop)
+    monkeypatch.setattr("mailwatch.main.MailBox", _FakeMailBox)
+    monkeypatch.setattr("mailwatch.main.handle_mailbox", spy)
+
+    assert main(["--host", "h", "--username", "u", "--password", "p"]) == 0
+    assert captured == [DEFAULT_RULES]

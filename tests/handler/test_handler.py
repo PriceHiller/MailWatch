@@ -1,11 +1,14 @@
 import datetime
-from typing import cast, final
+import logging
+from collections.abc import Sequence
+from typing import cast, final, override
 
 import pytest
 from imap_tools import MailBox
 
 from mailwatch.config import LoginConfig
 from mailwatch.handler import handle_mailbox
+from mailwatch.rules import MessageContext, Rule, RuleResult
 
 
 class _Stop(Exception): ...
@@ -38,7 +41,6 @@ class _FakeMailBox:
     def __init__(self, messages: list[_FakeMessage]) -> None:
         self._messages = messages
         self.idle = _FakeIdle([b"* 1 EXISTS"])
-        self.moved: list[tuple[str, str]] = []
         self.login_args: tuple[str, str, str | None] | None = None
 
     def login(
@@ -57,54 +59,96 @@ class _FakeMailBox:
         _ = criteria
         return self._messages
 
-    def move(self, uid: str, destination: str) -> None:
-        self.moved.append((uid, destination))
+
+@final
+class _RecordingRule(Rule):
+    def __init__(self, label: str, result: RuleResult, calls: list[str]) -> None:
+        self.label = label
+        self.result = result
+        self.calls = calls
+
+    @override
+    def handle(self, context: MessageContext) -> RuleResult:
+        _ = context
+        self.calls.append(self.label)
+        return self.result
 
 
-def _run(mailbox: _FakeMailBox) -> None:
+@final
+class _RaisingRule(Rule):
+    @override
+    def handle(self, context: MessageContext) -> RuleResult:
+        _ = context
+        raise RuntimeError("boom")
+
+
+def _run(mailbox: _FakeMailBox, rules: Sequence[Rule]) -> None:
     with pytest.raises(_Stop):
-        handle_mailbox(cast(MailBox, cast(object, mailbox)), LoginConfig(username="u", password="p"))
+        handle_mailbox(
+            cast(MailBox, cast(object, mailbox)),
+            LoginConfig(username="u", password="p"),
+            rules,
+        )
 
 
 def test_handle_mailbox_logs_in_to_inbox() -> None:
     mailbox = _FakeMailBox([])
 
-    _run(mailbox)
+    _run(mailbox, [])
 
     assert mailbox.login_args == ("u", "p", "INBOX")
 
 
-def test_handle_mailbox_moves_matching_messages() -> None:
-    mailbox = _FakeMailBox([_FakeMessage("Testing Mailwatch Validation", "42")])
+def test_handle_mailbox_runs_rules_in_order() -> None:
+    calls: list[str] = []
+    mailbox = _FakeMailBox([_FakeMessage("Hello", "1")])
+    rules = [
+        _RecordingRule("first", RuleResult.CONTINUE, calls),
+        _RecordingRule("second", RuleResult.CONTINUE, calls),
+    ]
 
-    _run(mailbox)
+    _run(mailbox, rules)
 
-    assert mailbox.moved == [("42", "Junk")]
-
-
-def test_handle_mailbox_ignores_non_matching_messages() -> None:
-    mailbox = _FakeMailBox([_FakeMessage("Hello World", "43")])
-
-    _run(mailbox)
-
-    assert mailbox.moved == []
+    assert calls == ["first", "second"]
 
 
-def test_handle_mailbox_ignores_matching_message_without_uid() -> None:
-    mailbox = _FakeMailBox([_FakeMessage("Testing Mailwatch", None)])
+def test_handle_mailbox_stops_after_stop_result() -> None:
+    calls: list[str] = []
+    mailbox = _FakeMailBox([_FakeMessage("Hello", "1")])
+    rules = [
+        _RecordingRule("stop", RuleResult.STOP, calls),
+        _RecordingRule("after", RuleResult.CONTINUE, calls),
+    ]
 
-    _run(mailbox)
+    _run(mailbox, rules)
 
-    assert mailbox.moved == []
+    assert calls == ["stop"]
+
+
+def test_handle_mailbox_logs_rule_failure_and_continues(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls: list[str] = []
+    mailbox = _FakeMailBox([_FakeMessage("Hello", "1")])
+    rules = [_RaisingRule(), _RecordingRule("after", RuleResult.CONTINUE, calls)]
+
+    with caplog.at_level(logging.ERROR):
+        _run(mailbox, rules)
+
+    assert calls == ["after"]
+    record = next(r for r in caplog.records if r.getMessage() == "Rule failed")
+    logged = cast("dict[str, object]", getattr(record, "context", None))
+    assert logged["rule"] == "_RaisingRule"
+    assert logged["uid"] == "1"
 
 
 def test_handle_mailbox_logs_message_context(caplog: pytest.LogCaptureFixture) -> None:
     mailbox = _FakeMailBox([_FakeMessage("Hello World", "43")])
 
     with caplog.at_level("INFO"):
-        _run(mailbox)
+        _run(mailbox, [])
 
     record = next(r for r in caplog.records if r.getMessage() == "Received message")
-    context = cast("dict[str, object]", getattr(record, "context", None))
-    assert context["subject"] == "Hello World"
-    assert context["uid"] == "43"
+    logged = cast("dict[str, object]", getattr(record, "context", None))
+    assert logged["subject"] == "Hello World"
+    assert logged["uid"] == "43"

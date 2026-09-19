@@ -12,6 +12,7 @@ from mailwatch.constants import APP_NAME
 from mailwatch.errors import BaseError, ShutdownRequested
 from mailwatch.handler import handle_mailbox
 from mailwatch.log import configure_logging
+from mailwatch.rules import DEFAULT_RULES
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         install_signal_handlers()
         mailbox = MailBox(host=cfg.mail_box_config.host, port=cfg.mail_box_config.port)
-        handle_mailbox(mailbox, cfg.login_config)
+        handle_mailbox(mailbox, cfg.login_config, DEFAULT_RULES)
     except ShutdownRequested:
         logger.info("Shutdown complete")
         return 0
