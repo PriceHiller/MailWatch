@@ -11,10 +11,13 @@ from mailwatch.rules import JunkRule, MessageContext, RuleResult
 @final
 class _FakeMailBox:
     def __init__(self) -> None:
-        self.moves: list[tuple[str, str]] = []
+        self.actions: list[tuple[str, str, str | bool]] = []
+
+    def flag(self, uid_list: str, flag_set: str, value: bool) -> None:
+        self.actions.append(("flag", uid_list, flag_set if value else f"-{flag_set}"))
 
     def move(self, uid: str, destination: str) -> None:
-        self.moves.append((uid, destination))
+        self.actions.append(("move", uid, destination))
 
 
 @final
@@ -35,13 +38,13 @@ def _context(subject: str, uid: str | None) -> tuple[MessageContext, _FakeMailBo
     return context, mailbox
 
 
-def test_matching_message_is_moved_to_junk() -> None:
+def test_matching_message_is_flagged_as_spam_and_moved_to_junk() -> None:
     context, mailbox = _context("Testing Mailwatch hello", "42")
 
     result = JunkRule()(context)
 
     assert result is RuleResult.STOP
-    assert mailbox.moves == [("42", "Junk")]
+    assert mailbox.actions == [("flag", "42", "$Junk"), ("move", "42", "Junk")]
 
 
 def test_non_matching_message_is_ignored() -> None:
@@ -50,7 +53,7 @@ def test_non_matching_message_is_ignored() -> None:
     result = JunkRule()(context)
 
     assert result is RuleResult.CONTINUE
-    assert mailbox.moves == []
+    assert mailbox.actions == []
 
 
 def test_matching_message_without_uid_is_ignored() -> None:
@@ -59,7 +62,7 @@ def test_matching_message_without_uid_is_ignored() -> None:
     result = JunkRule()(context)
 
     assert result is RuleResult.CONTINUE
-    assert mailbox.moves == []
+    assert mailbox.actions == []
 
 
 def test_custom_junk_folder_is_used() -> None:
@@ -68,7 +71,16 @@ def test_custom_junk_folder_is_used() -> None:
     result = JunkRule(junk_folder="Spam")(context)
 
     assert result is RuleResult.STOP
-    assert mailbox.moves == [("42", "Spam")]
+    assert mailbox.actions == [("flag", "42", "$Junk"), ("move", "42", "Spam")]
+
+
+def test_custom_spam_flag_is_used() -> None:
+    context, mailbox = _context("Testing Mailwatch hello", "42")
+
+    result = JunkRule(spam_flag="$NotJunk")(context)
+
+    assert result is RuleResult.STOP
+    assert mailbox.actions == [("flag", "42", "$NotJunk"), ("move", "42", "Junk")]
 
 
 def test_custom_subject_prefix_changes_matching() -> None:
@@ -77,7 +89,7 @@ def test_custom_subject_prefix_changes_matching() -> None:
     result = JunkRule(subject_prefix="Junk")(context)
 
     assert result is RuleResult.STOP
-    assert mailbox.moves == [("42", "Junk")]
+    assert mailbox.actions == [("flag", "42", "$Junk"), ("move", "42", "Junk")]
 
 
 def test_logs_uid_and_folder(caplog: pytest.LogCaptureFixture) -> None:

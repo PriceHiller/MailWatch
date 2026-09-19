@@ -8,18 +8,21 @@ logger = logging.getLogger(__name__)
 
 JUNK_FOLDER = "Junk"
 JUNK_SUBJECT_PREFIX = "Testing Mailwatch"
+JUNK_FLAG = "$Junk"
 
 
 @dataclasses.dataclass(frozen=True)
 class JunkRule(Rule):
     junk_folder: str = JUNK_FOLDER
     subject_prefix: str = JUNK_SUBJECT_PREFIX
+    spam_flag: str = JUNK_FLAG
 
     @override
     def handle(self, context: MessageContext) -> RuleResult:
         message = context.message
         if not (message.subject.startswith(self.subject_prefix) and message.uid):
             return RuleResult.CONTINUE
+        _ = context.mailbox.flag(message.uid, self.spam_flag, True)
         _ = context.mailbox.move(message.uid, self.junk_folder)
         logger.info(
             "Moved message to Junk",
