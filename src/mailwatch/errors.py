@@ -7,3 +7,7 @@ class BaseError(Exception):
 
 
 class ConfigLoadError(BaseError): ...
+
+
+class ShutdownRequested(Exception):
+    """Raised from a signal handler to unwind the watch loop gracefully."""

@@ -9,15 +9,11 @@ from imap_tools import MailBox
 from mailwatch.cli import parse_cli_args
 from mailwatch.config import AppConfig
 from mailwatch.constants import APP_NAME
-from mailwatch.errors import BaseError
+from mailwatch.errors import BaseError, ShutdownRequested
 from mailwatch.handler import handle_mailbox
 from mailwatch.log import configure_logging
 
 logger = logging.getLogger(__name__)
-
-
-class ShutdownRequested(Exception):
-    """Raised from a signal handler to unwind the watch loop gracefully."""
 
 
 def _handle_shutdown_signal(signum: int, _frame: FrameType | None) -> Never:

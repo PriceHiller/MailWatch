@@ -5,7 +5,8 @@ from typing import cast
 
 import pytest
 
-from mailwatch.main import ShutdownRequested, install_signal_handlers, main
+from mailwatch.errors import ShutdownRequested
+from mailwatch.main import install_signal_handlers, main
 
 
 def test_install_signal_handlers_requests_shutdown() -> None:
