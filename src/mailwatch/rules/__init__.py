@@ -1,7 +1,7 @@
 from mailwatch.rules.base import MessageContext, Rule, RuleResult
-from mailwatch.rules.junk import JunkRule, matches_junk_subject
+from mailwatch.rules.junk import JunkRule, matches_junk
 
-DEFAULT_RULES: tuple[Rule, ...] = (JunkRule(matches=matches_junk_subject),)
+DEFAULT_RULES: tuple[Rule, ...] = (JunkRule(matches=matches_junk),)
 
 __all__ = [
     "DEFAULT_RULES",
@@ -9,5 +9,5 @@ __all__ = [
     "MessageContext",
     "Rule",
     "RuleResult",
-    "matches_junk_subject",
+    "matches_junk",
 ]

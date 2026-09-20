@@ -6,7 +6,7 @@ from typing import cast, final
 import pytest
 from imap_tools import MailBox, MailMessage
 
-from mailwatch.rules import JunkRule, MessageContext, RuleResult, matches_junk_subject
+from mailwatch.rules import JunkRule, MessageContext, RuleResult, matches_junk
 
 
 @final
@@ -29,24 +29,34 @@ class _FakeMessage:
         uid: str | None = "42",
         text: str = "",
         html: str = "",
+        from_: str = "",
     ) -> None:
         self.subject = subject
         self.uid = uid
         self.text = text
         self.html = html
+        self.from_ = from_
         self.date = datetime.datetime(2026, 9, 19, 12, 0)
 
 
 def _context(
-    subject: str = "", uid: str | None = "42", text: str = "", html: str = ""
+    subject: str = "",
+    uid: str | None = "42",
+    text: str = "",
+    html: str = "",
+    from_: str = "",
 ) -> tuple[MessageContext, _FakeMailBox]:
     mailbox = _FakeMailBox()
-    message = _FakeMessage(subject, uid, text=text, html=html)
+    message = _FakeMessage(subject, uid, text=text, html=html, from_=from_)
     context = MessageContext(
         mailbox=cast(MailBox, cast(object, mailbox)),
         message=cast(MailMessage, cast(object, message)),
     )
     return context, mailbox
+
+
+def _message(**fields: str) -> MailMessage:
+    return cast(MailMessage, cast(object, _FakeMessage(**fields)))
 
 
 def _always(value: bool) -> Callable[[MailMessage], bool]:
@@ -128,14 +138,93 @@ def test_logs_uid_and_folder(caplog: pytest.LogCaptureFixture) -> None:
 
 
 @pytest.mark.parametrize(
-    ("subject", "expected"),
+    ("from_", "subject", "text", "html", "expected"),
     [
-        pytest.param("Testing Mailwatch", True, id="exact"),
-        pytest.param("Re: Testing Mailwatch report", True, id="contains"),
-        pytest.param("Hello World", False, id="absent"),
+        pytest.param(
+            "spammer@gmail.com", "ppd.nvim release", "", "", True, id="ppd-subject"
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "",
+            "check out pricehiller/ppd.nvim",
+            "",
+            True,
+            id="ppd-text",
+        ),
+        pytest.param(
+            "spammer@gmail.com", "", "", "<a href='ppd.nvim'>x</a>", True, id="ppd-html"
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "PPD.NVIM release",
+            "",
+            "",
+            True,
+            id="ppd-case-insensitive",
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "ppdXnvim release",
+            "",
+            "",
+            False,
+            id="ppd-dot-is-literal",
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "Hi PriceHiller, saw you on Github",
+            "",
+            "",
+            True,
+            id="pricehiller-subject",
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "",
+            "Hi PriceHiller, found your github page",
+            "",
+            True,
+            id="pricehiller-text-lowercase",
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "",
+            "",
+            "<p>Hi PriceHiller on Github</p>",
+            True,
+            id="pricehiller-html",
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "Hi PriceHiller",
+            "",
+            "",
+            False,
+            id="pricehiller-requires-github",
+        ),
+        pytest.param(
+            "spammer@gmail.com", "see my Github", "", "", False, id="pricehiller-requires-greeting"
+        ),
+        pytest.param(
+            "spammer@gmail.com",
+            "",
+            "Hi PriceHiller,\n\nI saw you on Github",
+            "",
+            True,
+            id="pricehiller-across-lines",
+        ),
+        pytest.param(
+            "spammer@gmail.com", "hello", "hi", "<p>hi</p>", False, id="gmail-no-match"
+        ),
+        pytest.param(
+            "spammer@example.com", "ppd.nvim release", "", "", False, id="non-gmail"
+        ),
+        pytest.param("", "ppd.nvim release", "", "", False, id="empty-sender"),
     ],
 )
-def test_matches_junk_subject(subject: str, expected: bool) -> None:
-    message = cast(MailMessage, cast(object, _FakeMessage(subject=subject)))
+def test_matches_junk(
+    from_: str, subject: str, text: str, html: str, expected: bool
+) -> None:
+    message = _message(from_=from_, subject=subject, text=text, html=html)
 
-    assert matches_junk_subject(message) is expected
+    assert matches_junk(message) is expected

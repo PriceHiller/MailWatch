@@ -15,12 +15,12 @@ let
   '';
 
   sendJunk = pkgs.writeShellScriptBin "send-junk" ''
-    { printf 'Subject: Testing Mailwatch end-to-end\n\nThis is unsolicited marketing.'; } \
+    { printf 'From: spammer@gmail.com\nTo: alice@localhost\nSubject: ppd.nvim plugin spam\n\nBuy this thing.'; } \
       | ${doveadm} save -u alice
   '';
 
   sendHam = pkgs.writeShellScriptBin "send-ham" ''
-    { printf 'Subject: Weekly team update\n\nNothing to see here.'; } \
+    { printf 'From: colleague@example.com\nTo: alice@localhost\nSubject: Weekly team update\n\nNothing to see here.'; } \
       | ${doveadm} save -u alice
   '';
 in

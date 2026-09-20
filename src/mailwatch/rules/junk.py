@@ -12,11 +12,24 @@ logger = logging.getLogger(__name__)
 
 JUNK_FOLDER = "Junk"
 JUNK_FLAG = "$Junk"
-JUNK_SUBJECT_REGEX = re.compile("Testing Mailwatch")
 
 
-def matches_junk_subject(message: MailMessage) -> bool:
-    return JUNK_SUBJECT_REGEX.search(message.subject) is not None
+def matches_junk(message: MailMessage) -> bool:
+    if "@gmail.com" not in message.from_:
+        return False
+
+    matchers = [
+        re.compile(r".*ppd\.nvim.*", re.IGNORECASE),
+        re.compile(r".*Hi PriceHiller.*(G|g)ithub", re.DOTALL),
+    ]
+    for matcher in matchers:
+        if (
+            matcher.search(message.subject)
+            or matcher.search(message.text)
+            or matcher.search(message.html)
+        ):
+            return True
+    return False
 
 
 @dataclasses.dataclass(frozen=True)
