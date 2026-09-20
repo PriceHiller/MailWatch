@@ -94,8 +94,24 @@
         mailwatch = self.nixosModules.default;
       };
 
-      checks = forAllSystems (system: {
-        mailwatch = mkPackage system;
-      });
+      checks = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          package = mkPackage system;
+        in
+        {
+          mailwatch = package;
+        }
+        // lib.optionalAttrs (system == "x86_64-linux") {
+          mailwatch-vm = pkgs.testers.runNixOSTest (
+            import ./ext/nix/tests/mailwatch.nix {
+              inherit pkgs;
+              mailwatchModule = self.nixosModules.default;
+              mailwatchPackage = package;
+            }
+          );
+        }
+      );
     };
 }
