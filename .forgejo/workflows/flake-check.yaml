@@ -1,0 +1,22 @@
+name: Check Flake
+enable-email-notifications: true
+on:
+  - push
+  - workflow_dispatch
+env:
+  NIX_CONFIG: |
+    experimental-features = flakes nix-command
+    accept-flake-config = true
+jobs:
+  flake-check:
+    runs-on: default
+    steps:
+      - name: Check out code
+        uses: https://git.pricehiller.com/actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          submodules: true
+      - name: Nix Version
+        run: nix --version
+      - name: Nix Flake Check
+        run: |
+          nix flake check
