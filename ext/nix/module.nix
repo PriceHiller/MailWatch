@@ -26,7 +26,7 @@ in
     enable = mkEnableOption "MailWatch mailbox watcher";
 
     package = mkOption {
-      type = types.package;
+      type = types.nullOr types.package;
       default = defaultPackage.${pkgs.stdenv.hostPlatform.system}.default;
       defaultText = literalExpression "inputs.mailwatch.packages.${pkgs.stdenv.hostPlatform.system}.default";
       description = "The MailWatch package to use.";
@@ -34,14 +34,13 @@ in
 
     settings = {
       host = mkOption {
-        type = types.str;
+        type = types.nullOr types.str;
         example = "imap.example.com";
         description = "Mail server hostname.";
       };
 
       port = mkOption {
-        type = types.port;
-        default = 993;
+        type = types.nullOr types.port;
         description = "Mail server port.";
       };
 
@@ -85,6 +84,20 @@ in
           or services.mailwatch.envFile to be set.
         '';
       }
+      {
+        assertion = cfg.settings.username != null || cfg.envFile != null;
+        message = ''
+          services.mailwatch requires either services.mailwatch.settings.username
+          or services.mailwatch.envFile to be set.
+        '';
+      }
+      {
+        assertion = cfg.settings.host != null || cfg.envFile != null;
+        message = ''
+          services.mailwatch requires either services.mailwatch.settings.host
+          or services.mailwatch.envFile to be set.
+        '';
+      }
     ];
 
     systemd.services.mailwatch = {
@@ -93,15 +106,10 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
-      environment =
-        {
-          MAILWATCH_HOST = cfg.settings.host;
-          MAILWATCH_PORT = toString cfg.settings.port;
-          MAILWATCH_USERNAME = cfg.settings.username;
-        }
-        // optionalAttrs (cfg.settings.password != null) {
-          MAILWATCH_PASSWORD = cfg.settings.password;
-        };
+      environment = lib.mkMerge [
+        (lib.mkIf (cfg.settings.host != null) { MAILWATCH_HOST = cfg.settings.host; })
+        (lib.mkIf (cfg.settings.port != null) { MAILWATCH_PORT = toString cfg.settings.port; })
+      ];
 
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/mailwatch";
