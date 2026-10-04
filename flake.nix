@@ -42,14 +42,21 @@
         system:
         import ./ext/nix/python-set.nix {
           pkgs = nixpkgs.legacyPackages.${system};
-          inherit lib pyproject-nix pyproject-build-systems workspace;
+          inherit
+            lib
+            pyproject-nix
+            pyproject-build-systems
+            workspace
+            ;
         }
       );
 
-      mkPackage = system: import ./ext/nix/package.nix {
-        pythonSet = pythonSets.${system};
-        deps = workspace.deps.default;
-      };
+      mkPackage =
+        system:
+        import ./ext/nix/package.nix {
+          pythonSet = pythonSets.${system};
+          deps = workspace.deps.default;
+        };
     in
     {
       packages = forAllSystems (
@@ -76,18 +83,15 @@
         }
       );
 
-      devShells = forAllSystems (
-        system:
-        {
-          default = import ./ext/nix/dev-shell.nix {
-            pkgs = nixpkgs.legacyPackages.${system};
-            pythonSet = pythonSets.${system}.overrideScope (
-              workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; }
-            );
-            deps = workspace.deps.all;
-          };
-        }
-      );
+      devShells = forAllSystems (system: {
+        default = import ./ext/nix/dev-shell.nix {
+          pkgs = nixpkgs.legacyPackages.${system};
+          pythonSet = pythonSets.${system}.overrideScope (
+            workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; }
+          );
+          deps = workspace.deps.all;
+        };
+      });
 
       nixosModules = {
         default = import ./ext/nix/module.nix { defaultPackage = self.packages; };
@@ -99,18 +103,18 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           package = mkPackage system;
+          tests = import ./ext/nix/tests/mailwatch.nix {
+            inherit pkgs;
+            mailwatchModule = self.nixosModules.default;
+            mailwatchPackage = package;
+          };
         in
         {
           mailwatch = package;
         }
         // lib.optionalAttrs (system == "x86_64-linux") {
-          mailwatch-vm = pkgs.testers.runNixOSTest (
-            import ./ext/nix/tests/mailwatch.nix {
-              inherit pkgs;
-              mailwatchModule = self.nixosModules.default;
-              mailwatchPackage = package;
-            }
-          );
+          mailwatch-vm = pkgs.testers.runNixOSTest tests.settings;
+          mailwatch-vm-environment-file = pkgs.testers.runNixOSTest tests.environmentFile;
         }
       );
     };

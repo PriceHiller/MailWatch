@@ -23,54 +23,38 @@ let
     { printf 'From: colleague@example.com\nTo: alice@localhost\nSubject: Weekly team update\n\nNothing to see here.'; } \
       | ${doveadm} save -u alice
   '';
-in
-{
-  name = "mailwatch";
 
-  nodes.machine =
-    { ... }:
-    {
-      imports = [ mailwatchModule ];
-
-      services.dovecot2 = {
-        enable = true;
-        enablePAM = true;
-        settings = {
-          dovecot_config_version = dovecot.version;
-          dovecot_storage_version = dovecot.version;
-          mail_driver = "maildir";
-          mail_path = "maildir:~/Maildir";
-          protocols = [ "imap" ];
-          ssl_server_cert_file = "${cert}/cert.pem";
-          ssl_server_key_file = "${cert}/key.pem";
-        };
+  # Per-node setup shared by every variant: an IMAP server to watch and the
+  # user whose mailbox is watched.
+  nodeConfig = { ... }: {
+    services.dovecot2 = {
+      enable = true;
+      enablePAM = true;
+      settings = {
+        dovecot_config_version = dovecot.version;
+        dovecot_storage_version = dovecot.version;
+        mail_driver = "maildir";
+        mail_path = "maildir:~/Maildir";
+        protocols = [ "imap" ];
+        ssl_server_cert_file = "${cert}/cert.pem";
+        ssl_server_key_file = "${cert}/key.pem";
       };
-
-      users.users.alice = {
-        isNormalUser = true;
-        initialPassword = "foobar";
-      };
-
-      security.pki.certificateFiles = [ "${cert}/cert.pem" ];
-
-      services.mailwatch = {
-        enable = true;
-        package = mailwatchPackage;
-        settings = {
-          host = "127.0.0.1";
-          port = 993;
-          username = "alice";
-          password = "foobar";
-        };
-      };
-
-      environment.systemPackages = [
-        sendJunk
-        sendHam
-      ];
-
-      system.stateVersion = "26.11";
     };
+
+    users.users.alice = {
+      isNormalUser = true;
+      initialPassword = "foobar";
+    };
+
+    security.pki.certificateFiles = [ "${cert}/cert.pem" ];
+
+    environment.systemPackages = [
+      sendJunk
+      sendHam
+    ];
+
+    system.stateVersion = "26.11";
+  };
 
   testScript = ''
     import datetime
@@ -97,4 +81,81 @@ in
         'test "$(${doveadm} search -u alice mailbox INBOX | wc -l)" -eq 1'
     )
   '';
+in
+{
+  # Credentials passed through `services.mailwatch.settings`.
+  settings = {
+    name = "mailwatch-settings";
+
+    nodes.machine = { ... }: {
+      imports = [
+        mailwatchModule
+        nodeConfig
+      ];
+
+      services.mailwatch = {
+        enable = true;
+        package = mailwatchPackage;
+        settings = {
+          host = "127.0.0.1";
+          port = 993;
+          username = "alice";
+          password = "foobar";
+        };
+      };
+    };
+
+    inherit testScript;
+  };
+
+  # Credentials passed through `services.mailwatch.environmentFile`: a oneshot
+  # service writes the file into a runtime directory at boot, so the secrets
+  # never enter the Nix store.
+  environmentFile = {
+    name = "mailwatch-environment-file";
+
+    nodes.machine = { ... }: {
+      imports = [
+        mailwatchModule
+        nodeConfig
+      ];
+
+      systemd.services.mailwatch-env = {
+        description = "MailWatch test environment file";
+        before = [ "mailwatch.service" ];
+        requiredBy = [ "mailwatch.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          RuntimeDirectory = "mailwatch";
+          RuntimeDirectoryMode = "0700";
+        };
+        script = ''
+          umask 077
+          printf '%s\n' \
+            'MAILWATCH_HOST=127.0.0.1' \
+            'MAILWATCH_PORT=993' \
+            'MAILWATCH_USERNAME=alice' \
+            'MAILWATCH_PASSWORD=foobar' \
+            > /run/mailwatch/env
+        '';
+      };
+
+      services.mailwatch = {
+        enable = true;
+        package = mailwatchPackage;
+        environmentFile = "/run/mailwatch/env";
+      };
+    };
+
+    testScript = ''
+      ${testScript}
+
+      # The password must have come from the environment file: it may not
+      # appear in the systemd unit, and the file itself must be root-only
+      # readable.
+      machine.succeed("! systemctl cat mailwatch.service | grep -q MAILWATCH_PASSWORD")
+      machine.succeed('test "$(stat -c %a /run/mailwatch/env)" = 600')
+    '';
+  };
 }
