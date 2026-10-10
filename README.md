@@ -61,3 +61,11 @@ Run `uv run mailwatch --help` for the full list of options.
 ## Testing
 
 See [docs/tests.md](docs/tests.md).
+
+# Am I a moron?
+
+Probably. Yeah, I'm putting this up where anyone can see it and this literally has my mailbox rules
+within it, especially for my spam detection. Look, if you come across this and decide it's time to
+set siege to my mailbox I'm kinda screwed. I accept that.
+
+But I figure it's nice enough to have this up here for other folks to see and reference so oh well.
