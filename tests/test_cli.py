@@ -17,10 +17,14 @@ def _set_env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
 
 
 _FULL_FLAGS = [
-    "--host", "flag.example.com",
-    "--port", "143",
-    "--username", "flag-user",
-    "--password", "flag-pass",
+    "--host",
+    "flag.example.com",
+    "--port",
+    "143",
+    "--username",
+    "flag-user",
+    "--password",
+    "flag-pass",
 ]
 
 _FULL_ENV = {
@@ -40,7 +44,10 @@ _BASELINE_FLAGS = ["--host", "h", "--username", "u", "--password", "p"]
             _FULL_FLAGS,
             {},
             argparse.Namespace(
-                host="flag.example.com", port=143, username="flag-user", password="flag-pass"
+                host="flag.example.com",
+                port=143,
+                username="flag-user",
+                password="flag-pass",
             ),
             id="flags-provide-all-values",
         ),
@@ -48,7 +55,10 @@ _BASELINE_FLAGS = ["--host", "h", "--username", "u", "--password", "p"]
             [],
             _FULL_ENV,
             argparse.Namespace(
-                host="env.example.com", port=143, username="env-user", password="env-pass"
+                host="env.example.com",
+                port=143,
+                username="env-user",
+                password="env-pass",
             ),
             id="env-vars-provide-all-values",
         ),
@@ -56,7 +66,10 @@ _BASELINE_FLAGS = ["--host", "h", "--username", "u", "--password", "p"]
             _FULL_FLAGS,
             _FULL_ENV,
             argparse.Namespace(
-                host="flag.example.com", port=143, username="flag-user", password="flag-pass"
+                host="flag.example.com",
+                port=143,
+                username="flag-user",
+                password="flag-pass",
             ),
             id="flags-take-precedence-over-env-vars",
         ),
@@ -64,7 +77,10 @@ _BASELINE_FLAGS = ["--host", "h", "--username", "u", "--password", "p"]
             ["--username", "flag-user"],
             {EnvVars.HOST: "env.example.com", EnvVars.PASSWORD: "env-pass"},
             argparse.Namespace(
-                host="env.example.com", port=993, username="flag-user", password="env-pass"
+                host="env.example.com",
+                port=993,
+                username="flag-user",
+                password="env-pass",
             ),
             id="flags-and-env-vars-can-be-mixed",
         ),
@@ -176,7 +192,9 @@ def test_parse_cli_args_returns_typed_args(monkeypatch: pytest.MonkeyPatch) -> N
     )
 
 
-def test_parse_cli_args_rejects_mistyped_argument(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_cli_args_rejects_mistyped_argument(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     parser = argparse.ArgumentParser()
     _ = parser.add_argument("--host", type=int, default=1)
     _ = parser.add_argument("--port", type=int, default=993)

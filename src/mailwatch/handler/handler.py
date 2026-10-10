@@ -54,7 +54,7 @@ def handle_mailbox(
                                 "uid": msg.uid,
                                 "to": msg.to,
                                 "date": msg.date,
-                                "size": format_size_bytes(msg.size)
+                                "size": format_size_bytes(msg.size),
                             }
                         },
                     )

@@ -6,7 +6,9 @@ from mailwatch.cli import EnvVars, parse_cli_args
 from mailwatch.config import AppConfig, CliArgs, LoginConfig, MailBoxConfig
 from mailwatch.errors import ConfigLoadError
 
-_BASE_ARGS = CliArgs(host="imap.example.com", port=993, username="user", password="secret")
+_BASE_ARGS = CliArgs(
+    host="imap.example.com", port=993, username="user", password="secret"
+)
 
 
 def _set_env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
@@ -35,7 +37,10 @@ _SPACED_ENV = {
         ),
         pytest.param(
             dataclasses.replace(
-                _BASE_ARGS, host="  imap.example.com  ", username=" user ", password=" secret "
+                _BASE_ARGS,
+                host="  imap.example.com  ",
+                username=" user ",
+                password=" secret ",
             ),
             AppConfig(
                 mail_box_config=MailBoxConfig(host="imap.example.com", port=993),
@@ -60,15 +65,31 @@ def test_from_args_builds_app_config(args: CliArgs, expected: AppConfig) -> None
 @pytest.mark.parametrize(
     ("args", "expected_option"),
     [
-        pytest.param(dataclasses.replace(_BASE_ARGS, host=""), "--host", id="blank-host"),
-        pytest.param(dataclasses.replace(_BASE_ARGS, host="   "), "--host", id="spaced-host"),
-        pytest.param(dataclasses.replace(_BASE_ARGS, username=""), "--username", id="blank-username"),
         pytest.param(
-            dataclasses.replace(_BASE_ARGS, username="   "), "--username", id="spaced-username"
+            dataclasses.replace(_BASE_ARGS, host=""), "--host", id="blank-host"
         ),
-        pytest.param(dataclasses.replace(_BASE_ARGS, password=""), "--password", id="blank-password"),
         pytest.param(
-            dataclasses.replace(_BASE_ARGS, password="   "), "--password", id="spaced-password"
+            dataclasses.replace(_BASE_ARGS, host="   "), "--host", id="spaced-host"
+        ),
+        pytest.param(
+            dataclasses.replace(_BASE_ARGS, username=""),
+            "--username",
+            id="blank-username",
+        ),
+        pytest.param(
+            dataclasses.replace(_BASE_ARGS, username="   "),
+            "--username",
+            id="spaced-username",
+        ),
+        pytest.param(
+            dataclasses.replace(_BASE_ARGS, password=""),
+            "--password",
+            id="blank-password",
+        ),
+        pytest.param(
+            dataclasses.replace(_BASE_ARGS, password="   "),
+            "--password",
+            id="spaced-password",
         ),
     ],
 )
@@ -93,7 +114,14 @@ def test_from_args_rejects_blank_values(args: CliArgs, expected_option: str) -> 
         ),
         pytest.param(
             _SPACED_ENV,
-            ["--host", "flag.example.com", "--username", "flag-user", "--password", "flag-pass"],
+            [
+                "--host",
+                "flag.example.com",
+                "--username",
+                "flag-user",
+                "--password",
+                "flag-pass",
+            ],
             AppConfig(
                 mail_box_config=MailBoxConfig(host="flag.example.com", port=143),
                 login_config=LoginConfig(username="flag-user", password="flag-pass"),
@@ -122,12 +150,20 @@ def test_config_is_built_from_environment(
             id="blank-env-host-is-rejected",
         ),
         pytest.param(
-            {EnvVars.HOST: "env.example.com", EnvVars.USERNAME: "   ", EnvVars.PASSWORD: "p"},
+            {
+                EnvVars.HOST: "env.example.com",
+                EnvVars.USERNAME: "   ",
+                EnvVars.PASSWORD: "p",
+            },
             "--username",
             id="blank-env-username-is-rejected",
         ),
         pytest.param(
-            {EnvVars.HOST: "env.example.com", EnvVars.USERNAME: "u", EnvVars.PASSWORD: "   "},
+            {
+                EnvVars.HOST: "env.example.com",
+                EnvVars.USERNAME: "u",
+                EnvVars.PASSWORD: "   ",
+            },
             "--password",
             id="blank-env-password-is-rejected",
         ),

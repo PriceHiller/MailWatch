@@ -21,6 +21,8 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
   outputs =
@@ -34,15 +36,35 @@
     }:
     let
       inherit (nixpkgs) lib;
-      forAllSystems = lib.genAttrs lib.systems.flakeExposed;
+      forAllSystems =
+        let
+          _forAllSystems = lib.genAttrs lib.systems.flakeExposed;
+        in
+        f:
+        _forAllSystems (
+          system:
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+            lib = pkgs.lib;
+            # arg = rec {
+            #   system = system;
+            # };
+          in
+          (f {
+            inherit pkgs;
+            inherit lib;
+            inherit system;
+
+          })
+        );
 
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
 
       pythonSets = forAllSystems (
-        system:
+        { pkgs, ... }:
         import ./ext/nix/python-set.nix {
-          pkgs = nixpkgs.legacyPackages.${system};
           inherit
+            pkgs
             lib
             pyproject-nix
             pyproject-build-systems
@@ -50,6 +72,8 @@
             ;
         }
       );
+
+      treefmtEval = forAllSystems ({ pkgs, ... }: inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix);
 
       mkPackage =
         system:
@@ -60,7 +84,7 @@
     in
     {
       packages = forAllSystems (
-        system:
+        { system, ... }:
         let
           package = mkPackage system;
         in
@@ -71,7 +95,7 @@
       );
 
       apps = forAllSystems (
-        system:
+        { system, ... }:
         let
           package = mkPackage system;
         in
@@ -83,25 +107,28 @@
         }
       );
 
-      devShells = forAllSystems (system: {
-        default = import ./ext/nix/dev-shell.nix {
-          pkgs = nixpkgs.legacyPackages.${system};
-          pythonSet = pythonSets.${system}.overrideScope (
-            workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; }
-          );
-          deps = workspace.deps.all;
-        };
-      });
+      devShells = forAllSystems (
+        { system, pkgs, ... }: {
+          default = import ./ext/nix/dev-shell.nix {
+            inherit pkgs;
+            pythonSet = pythonSets.${system}.overrideScope (
+              workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; }
+            );
+            deps = workspace.deps.all;
+          };
+        }
+      );
 
       nixosModules = {
         default = import ./ext/nix/module.nix { defaultPackage = self.packages; };
         mailwatch = self.nixosModules.default;
       };
 
+      formatter = forAllSystems ({ system, ... }: treefmtEval.${system}.config.build.wrapper);
+
       checks = forAllSystems (
-        system:
+        { pkgs, system, ... }:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
           package = mkPackage system;
           tests = import ./ext/nix/tests/mailwatch.nix {
             inherit pkgs;
@@ -111,6 +138,7 @@
         in
         {
           mailwatch = package;
+          formatting = treefmtEval.${system}.config.build.check self;
         }
         // lib.optionalAttrs (system == "x86_64-linux") {
           mailwatch-vm = pkgs.testers.runNixOSTest tests.settings;

@@ -37,7 +37,9 @@ def test_format_includes_core_fields() -> None:
 
 
 def test_format_merges_context() -> None:
-    payload = _payload(JsonFormatter().format(_record(subject="Testing Mailwatch", uid="42")))
+    payload = _payload(
+        JsonFormatter().format(_record(subject="Testing Mailwatch", uid="42"))
+    )
 
     assert payload["subject"] == "Testing Mailwatch"
     assert payload["uid"] == "42"

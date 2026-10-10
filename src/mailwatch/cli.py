@@ -21,9 +21,13 @@ def _port(value: str) -> int:
     try:
         port = int(value)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a port number, received '{value}'") from None
+        raise argparse.ArgumentTypeError(
+            f"expected a port number, received '{value}'"
+        ) from None
     if not 1 <= port <= 65535:
-        raise argparse.ArgumentTypeError(f"expected a port between 1 and 65535, received '{value}'")
+        raise argparse.ArgumentTypeError(
+            f"expected a port between 1 and 65535, received '{value}'"
+        )
     return port
 
 
@@ -86,4 +90,3 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help=f"login password (env: {EnvVars.PASSWORD})",
     )
     return parser
-

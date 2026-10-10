@@ -42,7 +42,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     logger.info(
         "Connecting to mailbox",
-        extra={"context": {"host": cfg.mail_box_config.host, "port": cfg.mail_box_config.port}},
+        extra={
+            "context": {
+                "host": cfg.mail_box_config.host,
+                "port": cfg.mail_box_config.port,
+            }
+        },
     )
     try:
         install_signal_handlers()

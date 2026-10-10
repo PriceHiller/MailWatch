@@ -131,7 +131,9 @@ def test_logs_uid_and_folder(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.INFO):
         _ = JunkRule(matches=_always(True), junk_folder="Spam")(context)
 
-    record = next(r for r in caplog.records if r.getMessage() == "Moved message to Junk")
+    record = next(
+        r for r in caplog.records if r.getMessage() == "Moved message to Junk"
+    )
     logged = cast("dict[str, object]", getattr(record, "context", None))
     assert logged["uid"] == "42"
     assert logged["folder"] == "Spam"
@@ -203,7 +205,12 @@ def test_logs_uid_and_folder(caplog: pytest.LogCaptureFixture) -> None:
             id="pricehiller-requires-github",
         ),
         pytest.param(
-            "spammer@gmail.com", "see my Github", "", "", False, id="pricehiller-requires-greeting"
+            "spammer@gmail.com",
+            "see my Github",
+            "",
+            "",
+            False,
+            id="pricehiller-requires-greeting",
         ),
         pytest.param(
             "spammer@gmail.com",

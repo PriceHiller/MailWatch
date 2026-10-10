@@ -56,4 +56,3 @@ class AppConfig:
             mail_box_config=MailBoxConfig.from_args(args),
             login_config=LoginConfig.from_args(args),
         )
-
