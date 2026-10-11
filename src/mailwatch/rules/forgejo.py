@@ -25,6 +25,8 @@ class ForgejoRule(Rule):
             )
             _ = mailbox.folder.create(self.ci_folder)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
+        # CREATE does not subscribe a folder; some clients hide unsubscribed folders.
+        _ = mailbox.folder.subscribe(self.ci_folder, True)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
         _ = mailbox.move(message.uid, self.ci_folder)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         logger.info(
             f"Moved message to '{self.ci_folder}', subject: '{message.subject}'"
