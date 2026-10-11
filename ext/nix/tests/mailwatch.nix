@@ -24,6 +24,11 @@ let
       | ${doveadm} save -u alice
   '';
 
+  sendForgejo = pkgs.writeShellScriptBin "send-forgejo" ''
+    { printf 'From: forgejo@pricehiller.com\nTo: alice@localhost\nSubject: Forgejo notification\n\nA repository was updated.'; } \
+      | ${doveadm} save -u alice
+  '';
+
   # Per-node setup shared by every variant: an IMAP server to watch and the
   # user whose mailbox is watched.
   nodeConfig = { ... }: {
@@ -51,6 +56,7 @@ let
     environment.systemPackages = [
       sendJunk
       sendHam
+      sendForgejo
     ];
 
     system.stateVersion = "26.11";
@@ -75,6 +81,19 @@ let
     machine.succeed("send-junk")
     machine.wait_until_succeeds(
         'test "$(${doveadm} search -u alice mailbox Junk | wc -l)" -eq 1',
+        timeout=datetime.timedelta(seconds=120),
+    )
+    machine.succeed(
+        'test "$(${doveadm} search -u alice mailbox INBOX | wc -l)" -eq 1'
+    )
+
+    machine.succeed("send-forgejo")
+    machine.wait_until_succeeds(
+        "${doveadm} mailbox list -u alice | grep -Fxq Forgejo",
+        timeout=datetime.timedelta(seconds=120),
+    )
+    machine.wait_until_succeeds(
+        'test "$(${doveadm} search -u alice mailbox Forgejo | wc -l)" -eq 1',
         timeout=datetime.timedelta(seconds=120),
     )
     machine.succeed(
