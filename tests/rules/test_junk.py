@@ -227,6 +227,26 @@ def test_logs_uid_and_folder(caplog: pytest.LogCaptureFixture) -> None:
             "spammer@example.com", "ppd.nvim release", "", "", False, id="non-gmail"
         ),
         pytest.param("", "ppd.nvim release", "", "", False, id="empty-sender"),
+        pytest.param(
+            "michealandre396@gmail.com",
+            "why PriceHiller/ppd.nvim has 2 stars",
+            """
+            Hi PriceHiller,
+
+            Great code does not sell itself.
+            PriceHiller/ppd.nvim is solid, but 2 stars says the right people have not
+            found it yet.
+
+            You approve everything before it goes out, so you stay fully in control of
+            how PriceHiller/ppd.nvim is presented.
+
+            Want me to send a short plan for PriceHiller/ppd.nvim? A one line reply is
+            all I need.
+            """,
+            "",
+            True,
+            id="actual-email-received-should-be-marked-spam",
+        ),
     ],
 )
 def test_matches_junk(

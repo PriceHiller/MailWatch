@@ -44,7 +44,7 @@ def handle_mailbox(
         initial_folder=INBOX_FOLDER,
     ) as logged_in:
         while True:
-            responses = logged_in.idle.wait(timeout=IDLE_TIMEOUT_SECONDS)
+            responses = logged_in.idle.wait(None)
             if responses:
                 for msg in logged_in.fetch(AND(seen=False)):
                     logger.info(
@@ -60,9 +60,7 @@ def handle_mailbox(
                     )
                     _apply_rules(MessageContext(mailbox=logged_in, message=msg), rules)
             else:
-                logger.debug(
-                    "No updates", extra={"context": {"timeout": IDLE_TIMEOUT_SECONDS}}
-                )
+                logger.debug("No updates received since last idle wait")
 
 
 def _apply_rules(context: MessageContext, rules: Sequence[Rule]) -> None:

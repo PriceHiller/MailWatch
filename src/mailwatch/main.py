@@ -46,6 +46,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "context": {
                 "host": cfg.mail_box_config.host,
                 "port": cfg.mail_box_config.port,
+                "user": cfg.login_config.username,
             }
         },
     )
