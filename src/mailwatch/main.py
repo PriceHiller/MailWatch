@@ -4,8 +4,6 @@ from collections.abc import Sequence
 from types import FrameType
 from typing import Never
 
-from imap_tools import MailBox
-
 from mailwatch.cli import parse_cli_args
 from mailwatch.config import AppConfig
 from mailwatch.constants import APP_NAME
@@ -52,8 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         install_signal_handlers()
-        mailbox = MailBox(host=cfg.mail_box_config.host, port=cfg.mail_box_config.port)
-        handle_mailbox(mailbox, cfg.login_config, DEFAULT_RULES)
+        handle_mailbox(cfg.mail_box_config, cfg.login_config, DEFAULT_RULES)
     except ShutdownRequested:
         logger.info("Shutdown complete")
         return 0

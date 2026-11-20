@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from mailwatch.config import LoginConfig, MailBoxConfig
 from mailwatch.errors import ShutdownRequested
 from mailwatch.main import install_signal_handlers, main
 from mailwatch.rules import DEFAULT_RULES, Rule
@@ -29,7 +30,11 @@ def _noop(*_args: object, **_kwargs: object) -> None: ...
 
 
 class _FakeIdle:
-    def wait(self, timeout: int) -> list[bytes]:
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+    def poll(self, timeout: float) -> list[bytes]:
         _ = timeout
         raise ShutdownRequested
 
@@ -37,19 +42,19 @@ class _FakeIdle:
 class _FakeMailBox:
     closed: bool = False
 
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, timeout: int) -> None:
         self.host: str = host
         self.port: int = port
+        self.timeout = timeout
 
     def login(self, **_kwargs: object) -> "_FakeMailBox":
         return self
 
-    def __enter__(self) -> "_FakeMailBox":
-        return self
-
-    def __exit__(self, *_exc: object) -> bool:
+    def logout(self) -> None:
         type(self).closed = True
-        return False
+
+    def fetch(self, _criteria: object) -> list[object]:
+        return []
 
     @property
     def idle(self) -> _FakeIdle:
@@ -60,7 +65,7 @@ def test_main_shuts_down_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
     _FakeMailBox.closed = False
     monkeypatch.setattr("mailwatch.main.configure_logging", _noop)
     monkeypatch.setattr("mailwatch.main.install_signal_handlers", _noop)
-    monkeypatch.setattr("mailwatch.main.MailBox", _FakeMailBox)
+    monkeypatch.setattr("mailwatch.handler.handler.MailBox", _FakeMailBox)
 
     assert main(["--host", "h", "--username", "u", "--password", "p"]) == 0
     assert _FakeMailBox.closed
@@ -69,13 +74,17 @@ def test_main_shuts_down_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_passes_default_rules(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: list[Sequence[Rule]] = []
 
-    def spy(mailbox: object, login_config: object, rules: Sequence[Rule]) -> None:
-        _ = mailbox, login_config
+    def spy(
+        mailbox_config: MailBoxConfig,
+        login_config: LoginConfig,
+        rules: Sequence[Rule],
+    ) -> None:
+        assert mailbox_config == MailBoxConfig(host="h", port=993)
+        assert login_config == LoginConfig(username="u", password="p")
         captured.append(rules)
 
     monkeypatch.setattr("mailwatch.main.configure_logging", _noop)
     monkeypatch.setattr("mailwatch.main.install_signal_handlers", _noop)
-    monkeypatch.setattr("mailwatch.main.MailBox", _FakeMailBox)
     monkeypatch.setattr("mailwatch.main.handle_mailbox", spy)
 
     assert main(["--host", "h", "--username", "u", "--password", "p"]) == 0
